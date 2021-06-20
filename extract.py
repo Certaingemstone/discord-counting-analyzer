@@ -10,9 +10,18 @@ def findFormatting(message):
     """
     pass
 
-def isolateNumber(message, separators):
+def findBase(numberRaw, target, bases):
     """
-    In: str message,
+    In: int numberRaw, int target, int[] bases
+    numberRaw in unknown base, target in decimal, checks which base conversion
+    yields result closest to target. Converts to bases in bases.
+    Returns tuple with (conversion result, base used)
+    """
+    pass
+
+def findNumber(message, separators=[",", " ", "."]):
+    """
+    In: str message, str[] separators
     Processing occurs as follows:
     - Leading and trailing non-numerals are stripped
     - For non-numerals between number chunks, take the substring and see if it's allowed
@@ -21,15 +30,6 @@ def isolateNumber(message, separators):
     -- else, strip the substring and the numeral group according to
         which one is first in the message
     Returns tuple with
-        (processed string, number of characters removed, intervening substrings)
-    """
-    pass
-
-def convertNumber(numberRaw, target, bases):
-    """
-    In: int numberRaw, int target, int[] bases
-    numberRaw in unknown base, target in decimal, checks which base conversion
-    yields result closest to target. Converts to bases in bases.
-    Returns tuple with (conversion result, base used)
+        (int, number of characters removed, intervening substrings)
     """
     pass
