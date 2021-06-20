@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Discord bot for Akmigone counting chat analysis. WIP.
+Discord bot for counting chat analysis. WIP.
 """
 
 import os
