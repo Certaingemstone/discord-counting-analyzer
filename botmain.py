@@ -19,7 +19,7 @@ import extract
 load_dotenv()
 TOKEN = getenv("DISCORD_TOKEN")
 PREFIX = getenv("PREFIX")
-MANAGER = getenv("MANAGER_ID")
+MANAGER = int(getenv("MANAGER_ID"))
 
 ### Bot client and database initialization ###
 bot = commands.Bot(command_prefix=PREFIX)
@@ -41,28 +41,33 @@ async def update(ctx):
     db.update(ctx, con, cur)
     con.close()
 
-@bot.command(name="delete_database")
+@bot.command(name="delete")
 @commands.check(isElevated)
-async def delete_database(ctx):
-    await ctx.send("Deleting channel database. Run rebuild_database to regenerate.")
+async def delete(ctx):
+    await ctx.send("Deleting channel database.")
     ret = db.delete(db.name(ctx))
     await ctx.send(f"Operation {ret}.")
-@delete_database.error
-async def delete_database_error(ctx, error):
+@delete.error
+async def delete_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send('Deletion requires elevated permissions.')
 
-@bot.command(name="rebuild_database")
+@bot.command(name="rebuild")
 @commands.check(isElevated)
-async def rebuild_database(ctx):
+async def rebuild(ctx):
     await ctx.send("Rebuilding channel database. This may take a while.")
     con = sqlite3.connect(db.name(ctx))
+    print("connected")
     cur = con.cursor()
-    db.rebuild(ctx, con, cur)
+    print("made cursor")
+    await db.rebuild(ctx, con, cur)
+    print("ran function")
+    con.commit()
+    print("committed")
     con.close()
-    await ctx.send("Operation complete.")
-@rebuild_database.error
-async def rebuild_database_error(ctx, error):
+    await ctx.send("Operation success.")
+@rebuild.error
+async def rebuild_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send('Rebuild requires elevated permissions.')
 

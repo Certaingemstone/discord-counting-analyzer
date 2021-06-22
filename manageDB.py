@@ -3,6 +3,7 @@ For creating and updating the counting channel message database
 """
 import os
 import sqlite3
+from sqlite3 import Error
 
 import discord
 
@@ -32,7 +33,7 @@ def delete(filepath):
         return "failure"
     return "success"
 
-def rebuild(ctx, con, cur):
+async def rebuild(ctx, con, cur):
     """
     Pulls ENTIRE history of channel and re-processes. Replaces duplicates.
     Will take a long time.
@@ -48,16 +49,16 @@ def rebuild(ctx, con, cur):
         number INTEGER,
         error INTEGER,
         length INTEGER
-        )"""
+        );"""
     cur.execute(createifndef)
 
     # Get messages from channel the command was sent in
     channel = ctx.channel
     inserter = """INSERT INTO messages (id, author, created_timestamp, content)
-        VALUES (?, ?, ?, ?)"""
-    async for message in channel.history(limit=None, oldest_first=True):
+        VALUES (?, ?, ?, ?);"""
+    clist = []
+    async for message in channel.history(limit=10, oldest_first=True):
+        print("hi")
         created_timestamp = message.created_at.timestamp()
-        cur.execute(inserter, (message.id, message.author, created_timestamp, message.content))
-
-    # Finalize changes
-    con.commit()
+        clist.append(message.id, message.author, created_timestamp, message.content)
+    print(clist)
