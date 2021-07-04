@@ -1,5 +1,6 @@
-# databases
+# Files in this project
 *.db
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

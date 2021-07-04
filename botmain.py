@@ -3,6 +3,7 @@
 Discord bot for counting chat analysis. WIP.
 """
 
+import os
 from os import getenv
 import sqlite3
 
@@ -28,15 +29,33 @@ bot = commands.Bot(command_prefix=PREFIX)
 async def isElevated(ctx):
     return ctx.author.id == MANAGER
 
-### Commands ###
-@bot.command(name="echo", help="echoes back to you!")
-async def echo(ctx, message : str):
-    await ctx.send(message)
+async def isBound(ctx):
+    nameFile = f"database/{ctx.guild}.txt"
+    return os.path.exists(nameFile)
 
+### User Commands ###
+@bot.command(name="count", help="the total number of messages in the counting channel")
+@commands.check(isBound)
+async def count(ctx):
+    con = sqlite3.connect(db.databaseName(ctx))
+    cur = con.cursor()
+    cur.execute("SELECT COUNT(*) FROM messages")
+    count = cur.fetchone()[0]
+    cur.execute("SELECT * FROM messages ORDER BY id DESC LIMIT 1")
+    last = cur.fetchone()
+    content = last[4]
+    print(last)
+    await ctx.send(f"We should be on {count}.")
+@count.error
+async def count_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send("Need to be bound to a channel.")
+
+### Management Commands ###
 @bot.command(name="update")
 async def update(ctx):
     await ctx.send("Updating channel database.")
-    con = sqlite3.connect(db.name(ctx))
+    con = sqlite3.connect(db.databaseName(ctx))
     cur = con.cursor()
     db.update(ctx, con, cur)
     con.close()
@@ -44,28 +63,36 @@ async def update(ctx):
 @bot.command(name="delete")
 @commands.check(isElevated)
 async def delete(ctx):
-    await ctx.send("Deleting channel database.")
-    ret = db.delete(db.name(ctx))
+    await ctx.send("Deleting database.")
+    ret = db.delete(db.databaseName(ctx))
     await ctx.send(f"Operation {ret}.")
 @delete.error
 async def delete_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send('Deletion requires elevated permissions.')
 
+@bot.command(name="bind")
+@commands.check(isElevated)
+async def bind(ctx, channelName : str):
+    nameFile = f"database/{ctx.guild}.txt"
+    channel = discord.utils.get(ctx.guild.channels, name=channelName)
+    if channel is not None:
+        ID = channel.id
+        with open(nameFile, "w") as file:
+            file.write(str(ID))
+        await ctx.send(f"Bound to channel {channelName} with ID {ID}.")
+    else:
+        await ctx.send(f"Couldn't find channel {channelName}.")
+
 @bot.command(name="rebuild")
 @commands.check(isElevated)
 async def rebuild(ctx):
-    await ctx.send("Rebuilding channel database. This may take a while.")
-    con = sqlite3.connect(db.name(ctx))
-    print("connected")
+    await ctx.send("Acknowledge.")
+    con = sqlite3.connect(db.databaseName(ctx))
     cur = con.cursor()
-    print("made cursor")
-    await db.rebuild(ctx, con, cur)
-    print("ran function")
-    con.commit()
-    print("committed")
+    targetChannel = await db.rebuild(ctx, con, cur)
     con.close()
-    await ctx.send("Operation success.")
+    await ctx.send(f"Operation success on {targetChannel}.")
 @rebuild.error
 async def rebuild_error(ctx, error):
     if isinstance(error, commands.CheckFailure):

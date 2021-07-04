@@ -9,8 +9,19 @@ import discord
 
 import extract
 
-def name(ctx):
-    return f"database/{ctx.guild}_{ctx.channel}.db"
+def countingChannelID(ctx):
+    # see if already bound to a channel
+    nameFile = f"database/{ctx.guild}.txt"
+    if os.path.exists(nameFile):
+        with open(nameFile, "r") as file:
+            lines = file.readlines()
+            ID = int(lines[0])
+    else:
+        ID = None
+    return ID
+
+def databaseName(ctx):
+    return f"database/{ctx.guild}.db"
 
 def getLastEntry(con, cur):
     """
@@ -36,7 +47,6 @@ def delete(filepath):
 async def rebuild(ctx, con, cur):
     """
     Pulls ENTIRE history of channel and re-processes. Replaces duplicates.
-    Will take a long time.
     """
     # Create table if not already there
     createifndef = """
@@ -51,14 +61,13 @@ async def rebuild(ctx, con, cur):
         length INTEGER
         );"""
     cur.execute(createifndef)
-
-    # Get messages from channel the command was sent in
-    channel = ctx.channel
+    # Get messages from channel the bot is bound to
+    channel = discord.utils.get(ctx.guild.channels, id=countingChannelID(ctx))
     inserter = """INSERT INTO messages (id, author, created_timestamp, content)
         VALUES (?, ?, ?, ?);"""
-    clist = []
-    async for message in channel.history(limit=10, oldest_first=True):
-        print("hi")
+    async for message in channel.history(limit=None, oldest_first=True):
         created_timestamp = message.created_at.timestamp()
-        clist.append(message.id, message.author, created_timestamp, message.content)
-    print(clist)
+        info = (int(message.id), str(message.author), int(created_timestamp), str(message.content))
+        cur.execute(inserter, info)
+    con.commit()
+    return str(channel)
