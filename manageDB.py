@@ -29,13 +29,26 @@ def getLastEntry(con, cur):
     """
     pass
 
-def update(ctx, con, cur, overlap=100):
+async def update(ctx, con, cur, overlap=10):
     """
     Retrieves up to overlap previous messages from before latest entry, and
     any new messages sent since then.
     Updates database entries accordingly.
     """
-    pass
+    # Figure out where to start the updating
+    cur.execute("SELECT * FROM messages ORDER BY id DESC LIMIT 1")
+    hist = cur.fetchmany(overlap)
+    startFromID = hist[-1][0]
+    # Do the updating
+    channel = discord.utils.get(ctx.guild.channels, id=countingChannelID(ctx))
+    upd= """INSERT OR REPLACE INTO messages (id, author, created_timestamp, content)
+        VALUES (?, ?, ?, ?);"""
+    async for message in channel.history(limit=None, oldest_first=True, after=startFromID):
+        created_timestamp = message.created_at.timestamp()
+        info = (int(message.id), str(message.author), int(created_timestamp), str(message.content))
+        cur.execute(upd, info)
+    con.commit()
+    return str(channel)
 
 def delete(filepath):
     try:

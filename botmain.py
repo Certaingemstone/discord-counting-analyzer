@@ -37,15 +37,18 @@ async def isBound(ctx):
 @bot.command(name="count", help="the total number of messages in the counting channel")
 @commands.check(isBound)
 async def count(ctx):
+    # update data
     con = sqlite3.connect(db.databaseName(ctx))
     cur = con.cursor()
+    await db.update(ctx, con, cur)
+    # get data
     cur.execute("SELECT COUNT(*) FROM messages")
     count = cur.fetchone()[0]
     cur.execute("SELECT * FROM messages ORDER BY id DESC LIMIT 1")
     last = cur.fetchone()
     content = last[4]
-    print(last)
-    await ctx.send(f"We should be on {count}.")
+    number = extract.findNumber(content)
+    await ctx.send(f"We should be on {count}, and I'm reading {number}.")
 @count.error
 async def count_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
@@ -57,7 +60,7 @@ async def update(ctx):
     await ctx.send("Updating channel database.")
     con = sqlite3.connect(db.databaseName(ctx))
     cur = con.cursor()
-    db.update(ctx, con, cur)
+    await db.update(ctx, con, cur)
     con.close()
 
 @bot.command(name="delete")
