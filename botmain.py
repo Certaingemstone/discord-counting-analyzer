@@ -5,6 +5,7 @@ Discord bot for counting chat analysis. WIP.
 
 import os
 from os import getenv
+import io
 import sqlite3
 
 import discord
@@ -64,15 +65,26 @@ async def history(ctx):
     await db.update(ctx, con, cur)
     # get data
     cur.execute("SELECT * FROM messages ORDER BY created_timestamp ASC")
-    times = []
     errors = []
     for count, row in enumerate(cur):
         delta = row[-1] - count # actual number - number it's supposed to be
-        epoch = row[2]
         errors.append(delta)
-        times.append(epoch)
-    plt.plot(times, errors, "bo")
-    plt.show()
+    # Plotting
+    fig = plt.figure()
+    ax = fig.add_subplot(2, 1, 1)
+    ax.set_title("error vs. message")
+    ax.set_xlabel("message")
+    ax.set_ylabel("error")
+    ax.plot(errors, color='blue', marker='o', linestyle='dashed', lw=2, markersize=5)
+    # Export
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format='jpg')
+    buffer.seek(0)
+    print("saved image to buffer")
+    imageFile = discord.File(fp=buffer, filename="graph.jpg")
+    print("created discord File object")
+    await ctx.send(file=imageFile)
+
 @history.error
 async def history_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
@@ -118,6 +130,7 @@ async def rebuild(ctx):
     await ctx.send("Acknowledge.")
     con = sqlite3.connect(db.databaseName(ctx))
     cur = con.cursor()
+    cur.execute("DROP TABLE messages;")
     targetChannel = await db.rebuild(ctx, con, cur)
     con.close()
     await ctx.send(f"Operation success on {targetChannel}.")
