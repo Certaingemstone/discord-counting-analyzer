@@ -36,18 +36,18 @@ async def update(ctx, con, cur, overlap=10):
     Updates database entries accordingly.
     """
     # Figure out where to start the updating
-    cur.execute("SELECT * FROM messages ORDER BY created_timestamp DESC LIMIT 1")
+    cur.execute(f"SELECT * FROM messages ORDER BY created_timestamp DESC LIMIT {overlap}")
     hist = cur.fetchmany(overlap)
     startFromID = hist[-1][0]
     # Do the updating
     channel = discord.utils.get(ctx.guild.channels, id=countingChannelID(ctx))
-    upd= """INSERT OR REPLACE INTO messages (id, author, created_timestamp, content, number)
-        VALUES (?, ?, ?, ?, ?);"""
-    async for message in channel.history(limit=None, oldest_first=True, after=startFromID):
+    startFrom = await channel.fetch_message(startFromID)
+    upd= """INSERT OR REPLACE INTO messages (id, author, created_timestamp, number)
+        VALUES (?, ?, ?, ?);"""
+    async for message in channel.history(limit=None, oldest_first=True, after=startFrom):
         created_timestamp = message.created_at.timestamp()
-        number = extract.findNumber(str(message.content))
-        info = (int(message.id), str(message.author), int(created_timestamp),
-            str(message.content), int(number))
+        number = await extract.findNumber(str(message.content))
+        info = (int(message.id), str(message.author), int(created_timestamp), int(number))
         cur.execute(upd, info)
     con.commit()
     return str(channel)
@@ -70,21 +70,19 @@ async def rebuild(ctx, con, cur):
         author TEXT NOT NULL,
         created_timestamp INTEGER NOT NULL,
         edited_timestamp INTEGER,
-        content TEXT NOT NULL,
         number INTEGER
         );"""
     cur.execute(createifndef)
     # Get messages from channel the bot is bound to
     channel = discord.utils.get(ctx.guild.channels, id=countingChannelID(ctx))
-    inserter = """INSERT OR REPLACE INTO messages (id, author, created_timestamp, content, number)
-        VALUES (?, ?, ?, ?, ?);"""
+    inserter = """INSERT OR REPLACE INTO messages (id, author, created_timestamp, number)
+        VALUES (?, ?, ?, ?);"""
     async for message in channel.history(limit=None, oldest_first=True):
         print("Extracting")
         created_timestamp = message.created_at.timestamp()
         number = await extract.findNumber(str(message.content))
         print("Success")
-        info = (int(message.id), str(message.author), int(created_timestamp),
-            str(message.content), number)
+        info = (int(message.id), str(message.author), int(created_timestamp), int(number))
         cur.execute(inserter, info)
     con.commit()
     return str(channel)

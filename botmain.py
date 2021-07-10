@@ -44,10 +44,11 @@ async def count(ctx):
     # get data
     cur.execute("SELECT COUNT(*) FROM messages")
     count = cur.fetchone()[0]
+    print("Made selection 1")
     cur.execute("SELECT * FROM messages ORDER BY created_timestamp DESC LIMIT 1")
     last = cur.fetchone()
-    content = last[4]
-    number = extract.findNumber(content)
+    number = last[4]
+    print("Made selection 2")
     await ctx.send(f"We should be on {count}, and I'm reading {number}.")
 @count.error
 async def count_error(ctx, error):
@@ -72,8 +73,7 @@ async def history(ctx):
         times.append(epoch)
     plt.plot(times, errors, "bo")
     plt.show()
-
-@count.error
+@history.error
 async def history_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send("Need to be bound to a channel.")
@@ -85,6 +85,7 @@ async def update(ctx):
     con = sqlite3.connect(db.databaseName(ctx))
     cur = con.cursor()
     await db.update(ctx, con, cur)
+    await ctx.send("Success.")
     con.close()
 
 @bot.command(name="delete")
