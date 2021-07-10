@@ -3,7 +3,7 @@ For naive feature extraction from message text strings
 """
 import re
 
-def findFormatting(message):
+async def findFormatting(message):
     """
     In: str message
     Look for markdown features, returns int flag
@@ -11,7 +11,7 @@ def findFormatting(message):
     """
     pass
 
-def findBase(numberRaw, target, bases):
+async def findBase(numberRaw, target, bases):
     """
     In: int numberRaw, int target, int[] bases
     numberRaw in unknown base, target in decimal, checks which base conversion
@@ -20,18 +20,20 @@ def findBase(numberRaw, target, bases):
     """
     pass
 
-def stripOutside(message, gapSize):
+async def stripOutside(message, gapSize):
     """
     Strips away from first cluster of numbers found (numbers considered not
     together if separated by more than gapSize non-numbers)
     """
-    numbers = {"0","1","2","3","4","5","6","7","8","9"}
+    numbers = set(["0","1","2","3","4","5","6","7","8","9"])
     # get index of first and last numeral
-    iF = None
-    iL = None
+    iF = 0
+    iL = 0
     started = False # whether the numbers have started
     count = 0
-    for i, char in enumerate(message):
+    i = 0
+    print("Message:", message)
+    for char in message:
         if char in numbers:
             if not started:
                 iF = i
@@ -43,11 +45,13 @@ def stripOutside(message, gapSize):
             count += 1
         if count > gapSize:
             break
+        i += 1
     # slice the string accordingly
+    print(f"Slicing from {iF} to {iL+1}")
     message = message[iF:iL+1]
     return message
 
-def findNumber(message, separators=[",", " ", "."]):
+async def findNumber(message, separators=[",", " ", "."]):
     """
     In: str message, str[] separators
     Processing occurs as follows:
@@ -63,6 +67,8 @@ def findNumber(message, separators=[",", " ", "."]):
     Returns tuple with
         (int, number of characters removed, intervening substrings)
     """
-    message = stripOutside(message, 3)
-    number = int( re.sub("\D", "", message) )
+    message = await stripOutside(message, 3)
+    message = re.sub("\D", "", message)
+    number = int(message) if len(message) > 0 else -1
+    print("Result:", number)
     return number

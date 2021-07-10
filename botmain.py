@@ -10,8 +10,8 @@ import sqlite3
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-#import numpy as np
-#import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.pyplot as plt
 
 import manageDB as db
 import extract
@@ -44,13 +44,37 @@ async def count(ctx):
     # get data
     cur.execute("SELECT COUNT(*) FROM messages")
     count = cur.fetchone()[0]
-    cur.execute("SELECT * FROM messages ORDER BY id DESC LIMIT 1")
+    cur.execute("SELECT * FROM messages ORDER BY created_timestamp DESC LIMIT 1")
     last = cur.fetchone()
     content = last[4]
     number = extract.findNumber(content)
     await ctx.send(f"We should be on {count}, and I'm reading {number}.")
 @count.error
 async def count_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send("Need to be bound to a channel.")
+
+@bot.command(name="history", help="the total number of messages in the counting channel")
+@commands.check(isBound)
+async def history(ctx):
+    # update data
+    con = sqlite3.connect(db.databaseName(ctx))
+    cur = con.cursor()
+    await db.update(ctx, con, cur)
+    # get data
+    cur.execute("SELECT * FROM messages ORDER BY created_timestamp ASC")
+    times = []
+    errors = []
+    for count, row in enumerate(cur):
+        delta = row[-1] - count # actual number - number it's supposed to be
+        epoch = row[2]
+        errors.append(delta)
+        times.append(epoch)
+    plt.plot(times, errors, "bo")
+    plt.show()
+
+@count.error
+async def history_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send("Need to be bound to a channel.")
 
