@@ -29,7 +29,7 @@ def getLastEntry(con, cur):
     """
     pass
 
-async def update(ctx, con, cur, overlap=10):
+async def update(ctx, con, cur, overlap=100):
     """
     Retrieves up to overlap previous messages from before latest entry, and
     any new messages sent since then.
@@ -42,12 +42,16 @@ async def update(ctx, con, cur, overlap=10):
     # Do the updating
     channel = discord.utils.get(ctx.guild.channels, id=countingChannelID(ctx))
     startFrom = await channel.fetch_message(startFromID)
-    upd= """INSERT OR REPLACE INTO messages (id, author, created_timestamp, number)
-        VALUES (?, ?, ?, ?);"""
+    upd= """INSERT OR REPLACE INTO messages (id, author, created_timestamp, edited_timestamp, number)
+        VALUES (?, ?, ?, ?, ?);"""
     async for message in channel.history(limit=None, oldest_first=True, after=startFrom):
         created_timestamp = message.created_at.timestamp()
+        if message.edited_at:
+            edited_timestamp = message.edited_at.timestamp()
+        else:
+            edited_timestamp = -1
         number = await extract.findNumber(str(message.content))
-        info = (int(message.id), str(message.author), int(created_timestamp), int(number))
+        info = (int(message.id), str(message.author), int(created_timestamp), int(edited_timestamp), int(number))
         cur.execute(upd, info)
     con.commit()
     return str(channel)
@@ -75,14 +79,18 @@ async def rebuild(ctx, con, cur):
     cur.execute(createifndef)
     # Get messages from channel the bot is bound to
     channel = discord.utils.get(ctx.guild.channels, id=countingChannelID(ctx))
-    inserter = """INSERT OR REPLACE INTO messages (id, author, created_timestamp, number)
-        VALUES (?, ?, ?, ?);"""
+    inserter = """INSERT OR REPLACE INTO messages (id, author, created_timestamp, edited_timestamp, number)
+        VALUES (?, ?, ?, ?, ?);"""
     async for message in channel.history(limit=None, oldest_first=True):
         print("Extracting")
         created_timestamp = message.created_at.timestamp()
+        if message.edited_at:
+            edited_timestamp = message.edited_at.timestamp()
+        else:
+            edited_timestamp = -1
         number = await extract.findNumber(str(message.content))
         print("Success")
-        info = (int(message.id), str(message.author), int(created_timestamp), int(number))
+        info = (int(message.id), str(message.author), int(created_timestamp), int(edited_timestamp), int(number))
         cur.execute(inserter, info)
     con.commit()
     return str(channel)
