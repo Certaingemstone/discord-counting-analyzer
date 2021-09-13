@@ -32,7 +32,7 @@ async def stripOutside(message, gapSize):
     started = False # whether the numbers have started
     count = 0
     i = 0
-    print("Message:", message)
+    #print("Message:", message)
     for char in message:
         if char in numbers:
             if not started:
@@ -47,7 +47,7 @@ async def stripOutside(message, gapSize):
             break
         i += 1
     # slice the string accordingly
-    print(f"Slicing from {iF} to {iL+1}")
+    #print(f"Slicing from {iF} to {iL+1}")
     message = message[iF:iL+1]
     return message
 
@@ -70,5 +70,23 @@ async def findNumber(message, separators=[",", " ", "."]):
     message = await stripOutside(message, 3)
     message = re.sub("\D", "", message)
     number = int(message) if len(message) > 0 else -1
-    print("Result:", number)
+    #print("Result:", number)
     return number
+
+async def sliceEnd(n, last):
+    """
+    In: str n (that is interpretable as int), int last
+    Returns: the last last digits of str n as string
+    """
+    num = str(n)
+    return num[-last:]
+
+async def isAtEnd(n, subn):
+    """
+    In: int n, int subn
+    Returns: True if subn is at the end of n. E.g.
+    n=609123, subn=123 -> True
+    n=623, subn=24 -> False
+    """
+    test = await sliceEnd(n, len(str(subn)))
+    return test == subn
