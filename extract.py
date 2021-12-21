@@ -3,22 +3,26 @@ For naive feature extraction from message text strings
 """
 import re
 
-async def findFormatting(message):
+async def convertBase(n, target):
     """
-    In: str message
-    Look for markdown features, returns int flag
-    0: no formatting 1: italics 2: bold 3: bold italics 4: ...
-    """
-    pass
-
-async def findBase(numberRaw, target, bases):
-    """
-    In: int numberRaw, int target, int[] bases
+    In: string n, int target
     numberRaw in unknown base, target in decimal, checks which base conversion
-    yields result closest to target. Converts to bases in bases.
-    Returns tuple with (conversion result, base used)
+    yields result closest to target. Tries binary, octal, and hexadecimal.
+    Returns tuple with (conversion result, base used, delta from target)
     """
-    pass
+    bases = (10,2,8,16)
+    results = []
+    for base in bases:
+        try:
+            results.append(int(n, base))
+        except ValueError:
+            results.append(float(inf))
+    best = (-1, -1, float(inf))
+    for res, bas in zip(results, bases):
+        delta = abs(res - target)
+        if delta < best[-1]:
+            best = (res, bas, delta)
+    return best
 
 async def stripOutside(message, gapSize):
     """
@@ -57,6 +61,8 @@ async def findNumber(message, separators=[",", " ", "."]):
     Processing occurs as follows:
     - Isolate the first group of numbers
     - Strip non-number characters
+    Returns:
+    int, -1 if failed to parse
 
     TO IMPLEMENT LATER:
     - For non-numerals between number chunks, take the substring and see if it's allowed

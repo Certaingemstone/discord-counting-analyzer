@@ -7,6 +7,7 @@ import os
 from os import getenv
 import io
 import sqlite3
+from collections import deque
 
 import discord
 from discord.ext import commands
@@ -96,6 +97,66 @@ async def history_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send("Need to be bound to a channel.")
 
+lasterrordoc = """Shows the last time where an error was committed, after a period of correct counting
+    lasting at least 5 messages."""
+@bot.command(name="lasterror", help=lasterrordoc)
+@commands.check(isBound)
+async def lasterror(ctx):
+    latest = -1
+    offsets = {0}
+    latestoffset = -1
+    error_index = -1
+    # update data
+    con = sqlite3.connect(db.databaseName(ctx))
+    cur = con.cursor()
+    await db.update(ctx, con, cur)
+    # get data, most recent first, and find the most recent number
+    cur.execute("SELECT * FROM messages ORDER BY created_timestamp DESC")
+    for row in cur:
+        if row[-1] == -1:
+            continue
+        else:
+            latest = row[-1]
+            break
+    # look for an error preceded by correct counting
+    cur.execute("SELECT * FROM messages ORDER BY created_timestamp DESC")
+    counter = 0
+    incr_counter = False
+    cache = deque([(None,None)]*11, maxlen=11) # for storing rolling buffer of rows
+    for i, row in enumerate(cur):
+        if row[-1] == -1:
+            continue # skip parse failures
+        if incr_counter:
+            counter += 1
+        test = row[-1] + i - latest
+        #print(f"{test}: counter at {counter}")
+        if test in offsets: 
+            if test != latestoffset: # if a correction was made
+                incr_counter = False
+        else: # found a new error!
+            #print("ERROR!")
+            counter = 0
+            error_index = i
+            offsets.add(test)
+            latestoffset = test
+            incr_counter = True # start the counter
+        cache.append(row)
+        if counter > 4:
+            break
+    # print the buffer
+    lines = ["Counts around error:"]
+    i = 0
+    while cache:
+        row = cache.pop()
+        ct = "parse failure" if row[-1] == -1 else row[-1]
+        res = f"{row[1]}: **{ct}**"
+        lines.append(res)
+        i += 1
+    await ctx.send("\n".join(lines))
+@lasterror.error
+async def lasterror_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send("Need to be bound to a channel.")
 
 leaderboarddoc = """Top counters in the last N counts; if no N given, reads the entire channel.
     If not specified, finds top 3. Usage: -leaderboard [N] [number of counters to show]"""
@@ -170,6 +231,56 @@ async def leaderboard(ctx, N=0, top=3):
 async def leaderboard_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send("Need to be bound to a channel.")
+
+@bot.command(name="activity", help="Usage: -activity [N_start] [N_end] [user tags]")
+async def activity(ctx, Ns, Ne, *users):
+    n_bins = 20
+    Ns = int(Ns)
+    Ne = int(Ne)
+    limit = Ne - Ns
+    if limit < 4*n_bins:
+        await ctx.send(f"Start index {Ns} and end index {Ne} should be a wider interval")
+        return
+    con = sqlite3.connect(db.databaseName(ctx))
+    cur = con.cursor()
+    await db.update(ctx, con, cur)
+    user_indices = {user: [] for user in users}
+    cur.execute(f"SELECT * FROM messages ORDER BY created_timestamp ASC LIMIT {limit} OFFSET {Ns}")
+    for i, row in enumerate(cur):
+        if row[1] in users:
+            user_indices[row[1]].append(i + Ns)
+    # determine bin edges and histogram values
+    bin_edges = np.linspace(Ns, Ne, num=n_bins, dtype=np.uint32)
+    users_final = []
+    hists = []
+    for key in user_indices:
+        users_final.append(key[:3])
+        hists.append(np.histogram(user_indices[key], bins=bin_edges)[0])
+    # create data matrix
+    data = np.array([h for h in hists])
+    # create 3d plot
+    ypos, xpos = np.indices(data.shape)
+    xpos = xpos.flatten()
+    ypos = ypos.flatten()
+    zpos = np.zeros(xpos.shape)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    colors = plt.cm.jet(data.flatten()/float(data.max()))
+    ax.bar3d(xpos, ypos, zpos, .5, .5, data.flatten(), color=colors)
+    ax.set_xlabel('Number')
+    ax.set_ylabel('')
+    ax.set_zlabel('Counts made')
+    ax.set_xticks(np.linspace(0, n_bins, 5, dtype=np.uint8))
+    ax.set_xticklabels(np.linspace(Ns, Ne, 5, dtype=np.uint32))
+    ax.set_yticks(list(map(lambda x: x + 0.5, range(len(users)))))
+    ax.set_yticklabels(users_final)
+    ax.set_title('Counting activity over time')
+    # Export
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format='jpg')
+    buffer.seek(0)
+    imageFile = discord.File(fp=buffer, filename="act.jpg")
+    await ctx.send(file=imageFile)
 
 
 endingindoc = """Finds the subsequence at the end of each number. Makes a leaderboard.

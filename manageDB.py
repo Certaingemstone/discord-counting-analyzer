@@ -23,12 +23,6 @@ def countingChannelID(ctx):
 def databaseName(ctx):
     return f"database/{ctx.guild}.db"
 
-def getLastEntry(con, cur):
-    """
-    Gets latest entry in database as tuple.
-    """
-    pass
-
 async def update(ctx, con, cur, overlap=100):
     """
     Retrieves up to overlap previous messages from before latest entry, and
